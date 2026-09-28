@@ -5,6 +5,7 @@ struct PlanListView: View {
     @ObservedObject var store: PlanStore
     @State private var showingNewPlan = false
     @State private var selectedPlanId: UUID?
+    @State private var deleteTarget: AppPlan?
 
     var body: some View {
         Group {
@@ -27,6 +28,18 @@ struct PlanListView: View {
             NewPlanView(store: store)
                 .frame(minWidth: 520, minHeight: 560)
         }
+        .confirmationDialog("删除整理计划",
+                            isPresented: Binding(
+                                get: { deleteTarget != nil },
+                                set: { if !$0 { deleteTarget = nil } }),
+                            titleVisibility: .visible,
+                            presenting: deleteTarget) { plan in
+            Button("删除「\(plan.title)」及全部 \(plan.tasks.count) 项任务", role: .destructive) {
+                if selectedPlanId == plan.id { selectedPlanId = nil }
+                store.deletePlan(plan)
+            }
+            Button("取消", role: .cancel) {}
+        }
         .sheet(item: Binding(
             get: { selectedPlanId.map(IDBox.init) },
             set: { selectedPlanId = $0?.id }
@@ -45,8 +58,8 @@ struct PlanListView: View {
             Image(systemName: "checklist")
                 .font(.system(size: 56))
                 .foregroundStyle(.tertiary)
-            Text("还没有计划").font(.title3.weight(.semibold))
-            Text("选择一种方法论，自动生成你的断舍离计划模板。")
+            Text("还没有整理计划").font(.title3.weight(.semibold))
+            Text("选择一种方法论，生成断舍离处置行动清单。")
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button {
                 showingNewPlan = true
@@ -63,7 +76,7 @@ struct PlanListView: View {
     private var planList: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("我的计划").font(.largeTitle.bold())
+                Text("整理计划").font(.largeTitle.bold())
                 LazyVStack(spacing: 12) {
                     ForEach(store.plans) { plan in
                         PlanRow(plan: plan)
@@ -71,8 +84,7 @@ struct PlanListView: View {
                             .onTapGesture { selectedPlanId = plan.id }
                             .contextMenu {
                                 Button("删除计划", role: .destructive) {
-                                    if selectedPlanId == plan.id { selectedPlanId = nil }
-                                    store.deletePlan(plan)
+                                    deleteTarget = plan
                                 }
                             }
                     }

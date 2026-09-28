@@ -10,6 +10,7 @@ struct PlanDetailView: View {
     @State private var newTaskTitle = ""
     @State private var newTaskGroup = ""
     @State private var editingTaskId: UUID?
+    @State private var deleteTaskId: UUID?
 
     /// 实时计划（store 变化即刷新）
     private var plan: AppPlan? { store.plans.first { $0.id == planId } }
@@ -61,6 +62,19 @@ struct PlanDetailView: View {
                 .frame(minWidth: 380, minHeight: 220)
             }
         }
+        .confirmationDialog("删除任务",
+                            isPresented: Binding(
+                                get: { deleteTaskId != nil },
+                                set: { if !$0 { deleteTaskId = nil } }),
+                            titleVisibility: .visible) {
+            if let id = deleteTaskId,
+               let task = plan?.tasks.first(where: { $0.id == id }) {
+                Button("删除「\(task.title)」", role: .destructive) {
+                    store.deleteTask(id, in: planId)
+                }
+            }
+            Button("取消", role: .cancel) {}
+        }
     }
 
     // MARK: 头部
@@ -107,7 +121,7 @@ struct PlanDetailView: View {
                                 task: task,
                                 onToggle: { store.toggleTask(task.id, in: planId) },
                                 onNote: { editingTaskId = task.id },
-                                onDelete: { store.deleteTask(task.id, in: planId) }
+                                onDelete: { deleteTaskId = task.id }
                             )
                         }
                     }
@@ -217,6 +231,7 @@ struct NoteEditorSheet: View {
     let onSave: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var text: String = ""
+    @State private var showingClearConfirm = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -229,7 +244,7 @@ struct NoteEditorSheet: View {
             HStack {
                 if !text.isEmpty {
                     Button("清除备注", role: .destructive) {
-                        onSave(""); dismiss()
+                        showingClearConfirm = true
                     }
                 }
                 Spacer()
@@ -240,5 +255,14 @@ struct NoteEditorSheet: View {
         }
         .padding(20)
         .onAppear { text = initialText }
+        .confirmationDialog("清除备注",
+                            isPresented: $showingClearConfirm,
+                            titleVisibility: .visible) {
+            Button("清除全部备注内容", role: .destructive) {
+                onSave("")
+                dismiss()
+            }
+            Button("取消", role: .cancel) {}
+        }
     }
 }
